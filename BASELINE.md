@@ -21,3 +21,10 @@ bash seq2act/data_generation/create_android_howto.sh # download Annotation File 
 cd seq2act/data/rico_sca/raw
 bash seq2act/data_generation/create_rico_sca.sh
 ```
+
+## How to run the baseline
+
+```bash
+cd /data/orlando/workspace/google-research
+tmux new 'python -m seq2act.data_generation.crawl_instructions --input_warc_dir=seq2act/data/android_howto/warc --output_instruction_json=seq2act/data/android_howto/crawled_instructions.json'
+```

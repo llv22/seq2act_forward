@@ -290,7 +290,8 @@ def target_warcs():
 
 # @delayed
 # @wrap_non_picklable_objects
-def parse(warc_file, output_instruction_json):
+def parse(args):
+    warc_file, output_instruction_json = args
     with open(output_instruction_json, 'a+') as f:
       fcntl.flock(f, fcntl.LOCK_EX)
       with open(warc_file, 'rb') as f1:
@@ -310,7 +311,6 @@ def main(_):
   # This is for the downloaded WARC files if they are stored in local device.
   # If the downloaded WARC files are stored in your own remote file system,
   # please costomize this part.
-  result = []
   filter_warcs = target_warcs()
   warcs = []
   for warc_file in glob.glob(os.path.join(FLAGS.input_warc_dir, '*.warc.gz')):
@@ -321,7 +321,7 @@ def main(_):
   # with tqdm_joblib(desc="Sync", total=len(warcs)) as progress_bar:
   open(FLAGS.output_instruction_json, 'w+').close()
   with Pool(64) as pool:
-    list(tqdm(pool.imap(parse, zip(warcs, [FLAGS.output_instruction_json] *  len(warcs))), total=len(warcs)))
+    list(tqdm(pool.imap(parse, list(zip(warcs, [FLAGS.output_instruction_json] *  len(warcs)))), total=len(warcs)))
   # for warc_file in target_warcs:
   #   with open(warc_file, 'rb') as f1:
   #     with gzip.open(f1, mode='rt', encoding='latin1') as f2:
