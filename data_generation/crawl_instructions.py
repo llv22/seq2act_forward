@@ -293,7 +293,6 @@ def target_warcs():
 def parse(args):
     warc_file, output_instruction_json = args
     with open(output_instruction_json, 'a+') as f:
-      fcntl.flock(f, fcntl.LOCK_EX)
       with open(warc_file, 'rb') as f1:
         with gzip.open(f1, mode='rt', encoding='latin1') as f2:
           for (url, index, instruction
@@ -304,7 +303,8 @@ def parse(args):
                 'url': url,
                 'index': index,
             }
-        f.write(json.dumps(output) + '\n')
+      fcntl.flock(f, fcntl.LOCK_EX)
+      f.write(json.dumps(output) + '\n')
       fcntl.flock(f, fcntl.LOCK_UN)
 
 def main(_):
