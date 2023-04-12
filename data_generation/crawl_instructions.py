@@ -15,8 +15,10 @@
 
 """Crawl instruction from html page."""
 
+import sys
 import fcntl
 entry_file  = "json_entry"
+import traceback
 import collections
 import glob
 import gzip
@@ -48,6 +50,17 @@ logging.basicConfig(
             logging.FileHandler(f"InstructionsParse{'{0:%Y-%m-%d %H_%M_%S}'.format(datetime.datetime.now())}.log")
         ]
 )
+
+def global_exception_handler(type, value, error_traceback):
+    """
+    refer to https://stackoverflow.com/questions/7075200/converting-exception-to-a-string-in-python-3
+    """
+    logger.exception(f"Uncaught exception {str(value)}")
+    logger.error(str(type))
+    logger.error(f"\n\t{''.join(traceback.format_tb(error_traceback))}")
+    sys.exit()
+
+sys.excepthook = global_exception_handler
 
 
 FLAGS = flags.FLAGS
@@ -292,20 +305,27 @@ def target_warcs():
 # @wrap_non_picklable_objects
 def parse(args):
     warc_file, output_instruction_json = args
+    if os.path.getsize(warc_file) < 1024 * 1024 * 1024:
+        logger.info(f'Processing {warc_file} seems with incorrect size {os.path.getsize(warc_file)/1024/1024:.2f} GB')
+        return
     with open(output_instruction_json, 'a+') as f:
-      with open(warc_file, 'rb') as f1:
-        with gzip.open(f1, mode='rt', encoding='latin1') as f2:
-          for (url, index, instruction
-              ) in extract_instructions_from_warc_file(warc_file, f2):
-            output = {
-                'file_name': warc_file,
-                'instructions': instruction,
-                'url': url,
-                'index': index,
-            }
-      fcntl.flock(f, fcntl.LOCK_EX)
-      f.write(json.dumps(output) + '\n')
-      fcntl.flock(f, fcntl.LOCK_UN)
+      try:
+        with open(warc_file, 'rb') as f1:
+          with gzip.open(f1, mode='rt', encoding='latin1') as f2:
+            for (url, index, instruction
+                ) in extract_instructions_from_warc_file(warc_file, f2):
+              output = {
+                  'file_name': warc_file,
+                  'instructions': instruction,
+                  'url': url,
+                  'index': index,
+              }
+        fcntl.flock(f, fcntl.LOCK_EX)
+        f.write(json.dumps(output) + '\n')
+        fcntl.flock(f, fcntl.LOCK_UN)
+      except EOFError as e:
+        logger.error(f'Processing {warc_file} seems with incorrect size {os.path.getsize(warc_file)/1024/1024:.2f} GB with EOFError {e}')
+        return
 
 def main(_):
   # This is for the downloaded WARC files if they are stored in local device.
@@ -317,7 +337,13 @@ def main(_):
     f_shortname = warc_file.split('/')[-1]
     if f_shortname in filter_warcs:
         warcs.append(warc_file)
-    
+  logger.info(f"Total warcs: {len(warcs)}")
+  
+  with open("seq2act/data/android_howto/crawled_instructions.s0.json", 'r') as f:
+    finished_filenames = set([json.loads(line)['file_name'] for line in f])
+  warcs = [warc for warc in warcs if warc not in finished_filenames]
+  logger.info(f"Total warcs that haven't been archived: {len(warcs)}")
+
   # with tqdm_joblib(desc="Sync", total=len(warcs)) as progress_bar:
   open(FLAGS.output_instruction_json, 'w+').close()
   with Pool(64) as pool:
