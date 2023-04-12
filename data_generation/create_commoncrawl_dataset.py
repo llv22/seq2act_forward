@@ -267,18 +267,21 @@ def _read_tasks(input_csv_file, input_instruction_json_file):
   instruction_found = 0
   instruction_not_found = 0
   id_tasks_dict = collections.defaultdict(list)
-  with open(input_csv_file, 'r') as f:
-    reader = csv.DictReader(f)
-    for row in reader:
-      task_id = get_task_id(row['index'], row['url'])
-      row['actions'] = _annotation_to_actions(row['annotation'])
-      row['agreement-count'] = int(row['agreement-count'])
-      if task_id in id_instruction_dict:
-        row['instruction'] = id_instruction_dict[task_id]
-        id_tasks_dict[task_id].append(row)
-        instruction_found += 1
-      else:
-        instruction_not_found += 1
+  with open('seq2act/data/android_howto/non_found_csv_annotation_rows.csv', 'w', newline='') as csvfile:
+    csv_writer = csv.DictWriter(csvfile, quotechar='|', quoting=csv.QUOTE_MINIMAL, fieldnames=['url', 'index', 'warc_file', 'annotation', 'agreement-count', 'actions'])
+    with open(input_csv_file, 'r') as f:
+      reader = csv.DictReader(f)
+      for row in reader:
+        task_id = get_task_id(row['index'], row['url'])
+        row['actions'] = _annotation_to_actions(row['annotation'])
+        row['agreement-count'] = int(row['agreement-count'])
+        if task_id in id_instruction_dict:
+          row['instruction'] = id_instruction_dict[task_id]
+          id_tasks_dict[task_id].append(row)
+          instruction_found += 1
+        else:
+          instruction_not_found += 1
+          csv_writer.writerow(row)
 
   if instruction_not_found == 0:
     print('All %s instructions match with annotations successfully.' %
